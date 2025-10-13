@@ -47,21 +47,32 @@ with open('ip.txt', 'w') as file:
             elif url == 'https://api.uouin.com/cloudflare.html':
                 # 遍历表格所有行，提取每行第三列的IP（优选IP）
                 table = soup.find('table')
-                if table:
-                    tbody = table.find('tbody')
-                    if tbody:
-                        rows = tbody.find_all('tr')
-                        found_ips = []
-                        for row in rows:
-                            tds = row.find_all('td')
-                            if len(tds) >= 3:
-                                ip = tds[2].get_text(strip=True)
-                                if re.match(ip_pattern, ip):
-                                    file.write(ip + '\n')
-                                    found_ips.append(ip)
-                                    print(f"[{url}] Found IP: {ip}")
-                        if found_ips:
-                            print(f"[{url}] All found IPs: {', '.join(found_ips)}")
+                if not table:
+                    print(f"[{url}] Warning: No <table> found in HTML.")
+                    print(f"[{url}] HTML snippet: {response.text[:500]}")
+                    continue
+                tbody = table.find('tbody')
+                if not tbody:
+                    print(f"[{url}] Warning: No <tbody> found in <table>.")
+                    print(f"[{url}] Table HTML: {str(table)[:500]}")
+                    continue
+                rows = tbody.find_all('tr')
+                if not rows:
+                    print(f"[{url}] Warning: No <tr> rows found in <tbody>.")
+                    continue
+                found_ips = []
+                for row in rows:
+                    tds = row.find_all('td')
+                    if len(tds) >= 3:
+                        ip = tds[2].get_text(strip=True)
+                        if re.match(ip_pattern, ip):
+                            file.write(ip + '\n')
+                            found_ips.append(ip)
+                            print(f"[{url}] Found IP: {ip}")
+                if found_ips:
+                    print(f"[{url}] All found IPs: {', '.join(found_ips)}")
+                else:
+                    print(f"[{url}] No valid IPs found in table rows.")
                 continue
             elif url == 'https://www.wetest.vip/page/cloudflare/address_v4.html':
                 # 优化：直接查找所有 <td data-label="优选地址">，更快
