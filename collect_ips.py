@@ -22,6 +22,7 @@ if os.path.exists('ip.txt'):
 # 创建一个文件来存储IP地址
 with open('ip.txt', 'w') as file:
     for url in urls:
+        print(f"Processing {url} ...")
         try:
             # 发送HTTP请求获取网页内容
             response = requests.get(url, timeout=10)
@@ -38,22 +39,22 @@ with open('ip.txt', 'w') as file:
                 for ip in ip_candidates:
                     if re.match(ip_pattern, ip):
                         file.write(ip + '\n')
+                        print(f"[{url}] Found IP: {ip}")
                 continue
             elif url == 'https://api.uouin.com/cloudflare.html':
-                # 使用XPath: //*[@id="result"]/table/tbody/tr[1]/td[2]
-                result_div = soup.find(id="result")
-                if result_div:
-                    table = result_div.find('table')
-                    if table:
-                        tbody = table.find('tbody')
-                        if tbody:
-                            first_row = tbody.find('tr')
-                            if first_row:
-                                tds = first_row.find_all('td')
-                                if len(tds) >= 2:
-                                    ip = tds[1].get_text(strip=True)
-                                    if re.match(ip_pattern, ip):
-                                        file.write(ip + '\n')
+                # 直接查找表格并提取<tr>的第二列<td>内容
+                table = soup.find('table')
+                if table:
+                    tbody = table.find('tbody')
+                    if tbody:
+                        first_row = tbody.find('tr')
+                        if first_row:
+                            tds = first_row.find_all('td')
+                            if len(tds) >= 2:
+                                ip = tds[1].get_text(strip=True)
+                                if re.match(ip_pattern, ip):
+                                    file.write(ip + '\n')
+                                    print(f"[{url}] Found IP: {ip}")
                 continue
             elif url == 'https://www.wetest.vip/page/cloudflare/address_v4.html':
                 # 优化：直接查找所有 <td data-label="优选地址">，更快
@@ -64,37 +65,26 @@ with open('ip.txt', 'w') as file:
                     for ip in ip_candidates:
                         if re.match(ip_pattern, ip):
                             file.write(ip + '\n')
+                            print(f"[{url}] Found IP: {ip}")
                 continue
             elif url == 'https://stock.hostmonit.com/CloudFlareYes':
-                # 优化：使用XPath: //*[@id="app"]/div/div[2]/div[1]/div[3]/table/tbody/tr[1]/td[2]/div
-                app_div = soup.find(id="app")
-                if app_div:
-                    # 依次深入div结构
-                    divs = app_div.find_all('div', recursive=False)
-                    if len(divs) >= 3:
-                        main_div = divs[2]
-                        inner_divs = main_div.find_all('div', recursive=False)
-                        if len(inner_divs) >= 1:
-                            content_div = inner_divs[0]
-                            # 继续深入
-                            sub_divs = content_div.find_all('div', recursive=False)
-                            if len(sub_divs) >= 3:
-                                table_div = sub_divs[2]
-                                table = table_div.find('table')
-                                if table:
-                                    tbody = table.find('tbody')
-                                    if tbody:
-                                        first_row = tbody.find('tr')
-                                        if first_row:
-                                            tds = first_row.find_all('td')
-                                            if len(tds) >= 2:
-                                                ip_div = tds[1].find('div')
-                                                if ip_div:
-                                                    ip_text = ip_div.get_text(strip=True)
-                                                    ip_candidates = [ip.strip() for ip in ip_text.split(',')]
-                                                    for ip in ip_candidates:
-                                                        if re.match(ip_pattern, ip):
-                                                            file.write(ip + '\n')
+                # 直接查找表格并提取<tr>的第二列<div class='cell'>内容
+                table = soup.find('table')
+                if table:
+                    tbody = table.find('tbody')
+                    if tbody:
+                        first_row = tbody.find('tr')
+                        if first_row:
+                            tds = first_row.find_all('td')
+                            if len(tds) >= 2:
+                                cell_div = tds[1].find('div', class_='cell')
+                                if cell_div:
+                                    ip_text = cell_div.get_text(strip=True)
+                                    ip_candidates = [ip.strip() for ip in ip_text.split(',')]
+                                    for ip in ip_candidates:
+                                        if re.match(ip_pattern, ip):
+                                            file.write(ip + '\n')
+                                            print(f"[{url}] Found IP: {ip}")
                 continue
             else:
                 elements = soup.find_all('li')
@@ -107,6 +97,7 @@ with open('ip.txt', 'w') as file:
                 # 如果找到IP地址,则写入文件
                 for ip in ip_matches:
                     file.write(ip + '\n')
+                    print(f"[{url}] Found IP: {ip}")
 
         except Exception as e:
             print(f"处理 {url} 时出错：{e}")
