@@ -45,19 +45,23 @@ with open('ip.txt', 'w') as file:
                     print(f"[{url}] All found IPs: {', '.join(found_ips)}")
                 continue
             elif url == 'https://api.uouin.com/cloudflare.html':
-                # 直接查找表格并提取<tr>的第二列<td>内容
+                # 遍历表格所有行，提取每行第三列的IP（优选IP）
                 table = soup.find('table')
                 if table:
                     tbody = table.find('tbody')
                     if tbody:
-                        first_row = tbody.find('tr')
-                        if first_row:
-                            tds = first_row.find_all('td')
-                            if len(tds) >= 2:
-                                ip = tds[1].get_text(strip=True)
+                        rows = tbody.find_all('tr')
+                        found_ips = []
+                        for row in rows:
+                            tds = row.find_all('td')
+                            if len(tds) >= 3:
+                                ip = tds[2].get_text(strip=True)
                                 if re.match(ip_pattern, ip):
                                     file.write(ip + '\n')
+                                    found_ips.append(ip)
                                     print(f"[{url}] Found IP: {ip}")
+                        if found_ips:
+                            print(f"[{url}] All found IPs: {', '.join(found_ips)}")
                 continue
             elif url == 'https://www.wetest.vip/page/cloudflare/address_v4.html':
                 # 优化：直接查找所有 <td data-label="优选地址">，更快
