@@ -33,13 +33,16 @@ with open('ip.txt', 'w') as file:
 
             # 根据网站的不同结构找到包含IP地址的元素
             if url == 'https://ip.164746.xyz/ipTop10.html':
-                # 该页面的IP在body的text节点中,用逗号分隔
-                body_text = soup.body.get_text()
-                ip_candidates = [ip.strip() for ip in body_text.split(',')]
+                # 该页面直接返回逗号分隔的IP字符串，无需解析HTML
+                ip_candidates = [ip.strip() for ip in response.text.split(',')]
+                found_ips = []
                 for ip in ip_candidates:
                     if re.match(ip_pattern, ip):
                         file.write(ip + '\n')
+                        found_ips.append(ip)
                         print(f"[{url}] Found IP: {ip}")
+                if found_ips:
+                    print(f"[{url}] All found IPs: {', '.join(found_ips)}")
                 continue
             elif url == 'https://api.uouin.com/cloudflare.html':
                 # 直接查找表格并提取<tr>的第二列<td>内容
