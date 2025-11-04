@@ -45,34 +45,17 @@ with open('ip.txt', 'w') as file:
                     print(f"[{url}] All found IPs: {', '.join(found_ips)}")
                 continue
             elif url == 'https://api.uouin.com/cloudflare.html':
-                # 遍历表格所有行，提取每行第三列的IP（优选IP）
-                table = soup.find('table')
-                if not table:
-                    print(f"[{url}] Warning: No <table> found in HTML.")
-                    print(f"[{url}] HTML snippet: {response.text[:500]}")
-                    continue
-                tbody = table.find('tbody')
-                if not tbody:
-                    print(f"[{url}] Warning: No <tbody> found in <table>.")
-                    print(f"[{url}] Table HTML: {str(table)[:500]}")
-                    continue
-                rows = tbody.find_all('tr')
-                if not rows:
-                    print(f"[{url}] Warning: No <tr> rows found in <tbody>.")
-                    continue
+                # 该页面的IP以文本表格形式出现，直接用正则提取所有IPv4
+                ip_matches = re.findall(ip_pattern, response.text)
                 found_ips = []
-                for row in rows:
-                    tds = row.find_all('td')
-                    if len(tds) >= 3:
-                        ip = tds[2].get_text(strip=True)
-                        if re.match(ip_pattern, ip):
-                            file.write(ip + '\n')
-                            found_ips.append(ip)
-                            print(f"[{url}] Found IP: {ip}")
+                for ip in ip_matches:
+                    file.write(ip + '\n')
+                    found_ips.append(ip)
+                    print(f"[{url}] Found IP: {ip}")
                 if found_ips:
                     print(f"[{url}] All found IPs: {', '.join(found_ips)}")
                 else:
-                    print(f"[{url}] No valid IPs found in table rows.")
+                    print(f"[{url}] No valid IPs found in response text.")
                 continue
             elif url == 'https://www.wetest.vip/page/cloudflare/address_v4.html':
                 # 优化：直接查找所有 <td data-label="优选地址">，更快
