@@ -30,14 +30,26 @@ jobs:
       - name: Run script
         run: python ${{ github.workspace }}/collect_ips.py
 
-      - name: Commit and push changes
+      - name: Commit and push changes (amend + force)
         run: |
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
+          # 只有在有改动时才继续
           if [ -n "$(git status --porcelain)" ]; then
             git add ip.txt
-            git commit -m "Automatic update"
-            git push
+            # 如果最近一次commit是自动更新(commit message以Automatic update开头且作者为actions bot)
+            # 则将其修正(amend)以防止产生大量累积的提交；否则创建新提交
+            LAST_AUTHOR=$(git log -1 --pretty=format:%ae)
+            LAST_MSG=$(git log -1 --pretty=format:%s)
+            if [ "$LAST_AUTHOR" = "41898282+github-actions[bot]@users.noreply.github.com" ] && echo "$LAST_MSG" | grep -q '^Automatic update'; then
+              git commit --amend --no-edit
+            else
+              git commit -m "Automatic update"
+            fi
+
+            # 强制推送到当前分支，替换之前的自动更新提交，避免分支生成大量重复提交
+            # 这会重写远程历史，请确保这是你想要的行为
+            git push --force-with-lease origin HEAD:${{ github.ref_name }}
           else
             echo "No changes detected, skipping commit."
           fi
