@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import ipaddress
 import os
 
 # 目标URL列表
@@ -19,9 +20,39 @@ ip_pattern = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 if os.path.exists('ip.txt'):
     os.remove('ip.txt')
 
-# 创建一个文件来存储IP地址
-with open('ip.txt', 'w') as file:
-    for url in urls:
+# 收集所有IP用于去重和验证(保留发现顺序)
+found_ips = []
+found_ips_set = set()
+
+def _normalize_ip(ip_str: str) -> str:
+    """清除提取到的IP地址字符串两端常见的标点和空白字符。"""
+    if not ip_str:
+        return ip_str
+    return ip_str.strip().strip(',;()[]')
+
+def _add_ip(ip_str: str, source: str) -> bool:
+    """验证IP并添加到有序唯一列表中。
+
+    返回值: 如果IP被成功添加(即未重复且为IPv4)返回True，否则返回False。
+    """
+    ip_str = _normalize_ip(ip_str)
+    try:
+        # 使用ipaddress验证IP是否合法(IPv4/IPv6)，但我们只接受IPv4
+        ip_obj = ipaddress.ip_address(ip_str)
+        if ip_obj.version != 4:
+            # 忽略IPv6地址
+            return
+    except Exception:
+        return
+
+    if ip_str not in found_ips_set:
+        found_ips.append(ip_str)
+        found_ips_set.add(ip_str)
+        print(f"[{source}] Found IP: {ip_str}")
+        return True
+    return False
+
+for url in urls:
         print(f"Processing {url} ...")
         try:
             # 发送HTTP请求获取网页内容
@@ -35,25 +66,23 @@ with open('ip.txt', 'w') as file:
             if url == 'https://ip.164746.xyz/ipTop10.html':
                 # 该页面直接返回逗号分隔的IP字符串，无需解析HTML
                 ip_candidates = [ip.strip() for ip in response.text.split(',')]
-                found_ips = []
+                local_found = []
                 for ip in ip_candidates:
                     if re.match(ip_pattern, ip):
-                        file.write(ip + '\n')
-                        found_ips.append(ip)
-                        print(f"[{url}] Found IP: {ip}")
-                if found_ips:
-                    print(f"[{url}] All found IPs: {', '.join(found_ips)}")
+                        if _add_ip(ip, url):
+                            local_found.append(ip)
+                if local_found:
+                    print(f"[{url}] All found IPs: {', '.join(local_found)}")
                 continue
             elif url == 'https://api.uouin.com/cloudflare.html':
                 # 该页面的IP以文本表格形式出现，直接用正则提取所有IPv4
                 ip_matches = re.findall(ip_pattern, response.text)
-                found_ips = []
+                local_found = []
                 for ip in ip_matches:
-                    file.write(ip + '\n')
-                    found_ips.append(ip)
-                    print(f"[{url}] Found IP: {ip}")
-                if found_ips:
-                    print(f"[{url}] All found IPs: {', '.join(found_ips)}")
+                    if _add_ip(ip, url):
+                        local_found.append(ip)
+                if local_found:
+                    print(f"[{url}] All found IPs: {', '.join(local_found)}")
                 else:
                     print(f"[{url}] No valid IPs found in response text.")
                 continue
@@ -65,8 +94,7 @@ with open('ip.txt', 'w') as file:
                     ip_candidates = [ip.strip() for ip in ip_text.split(',')]
                     for ip in ip_candidates:
                         if re.match(ip_pattern, ip):
-                            file.write(ip + '\n')
-                            print(f"[{url}] Found IP: {ip}")
+                            _add_ip(ip, url)
                 continue
             elif url == 'https://stock.hostmonit.com/CloudFlareYes':
                 # 直接查找表格并提取<tr>的第二列<div class='cell'>内容
@@ -84,8 +112,7 @@ with open('ip.txt', 'w') as file:
                                     ip_candidates = [ip.strip() for ip in ip_text.split(',')]
                                     for ip in ip_candidates:
                                         if re.match(ip_pattern, ip):
-                                            file.write(ip + '\n')
-                                            print(f"[{url}] Found IP: {ip}")
+                                            _add_ip(ip, url)
                 continue
             else:
                 elements = soup.find_all('li')
@@ -97,10 +124,14 @@ with open('ip.txt', 'w') as file:
 
                 # 如果找到IP地址,则写入文件
                 for ip in ip_matches:
-                    file.write(ip + '\n')
-                    print(f"[{url}] Found IP: {ip}")
+                    _add_ip(ip, url)
 
         except Exception as e:
             print(f"处理 {url} 时出错：{e}")
 
-print('IP地址已保存到 ip.txt 文件中。')
+# 将去重后的IP写入文件
+with open('ip.txt', 'w', encoding='utf-8') as file:
+    for ip in found_ips:
+        file.write(ip + '\n')
+
+print(f"共发现 {len(found_ips)} 个唯一IPv4地址，已保存到 ip.txt 文件中。")
