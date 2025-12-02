@@ -15,6 +15,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          # Fetch full history so we can inspect and reset the previous commit reliably
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -32,8 +35,18 @@ jobs:
 
       - name: Commit and push changes (safe update)
         run: |
+          set -x
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Git status (begin):"
+          git status --porcelain
+          echo "Last 5 commits:"
+          git --no-pager log --decorate --pretty=oneline -n 5 || true
+          # fetch remote updates to be aware of remote changes
+          git fetch --prune origin ${{ github.ref_name }} || true
+          echo "Remote HEAD: $(git rev-parse --verify origin/${{ github.ref_name }} 2>/dev/null || echo 'no-remote')"
+          echo "Local HEAD: $(git rev-parse --verify HEAD 2>/dev/null)"
           # 只有在有改动时才继续
           if [ -n "$(git status --porcelain)" ]; then
             git add ip.txt
@@ -42,11 +55,20 @@ jobs:
             # 否则，直接正常提交并推送，避免覆盖他人的改动
             LAST_AUTHOR=$(git log -1 --pretty=format:%ae)
             LAST_MSG=$(git log -1 --pretty=format:%s)
+            echo "Last commit author: $LAST_AUTHOR"
+            echo "Last commit msg: $LAST_MSG"
             if [ "$LAST_AUTHOR" = "41898282+github-actions[bot]@users.noreply.github.com" ] && echo "$LAST_MSG" | grep -q '^Automatic update'; then
-              # 将上一次自动更新的提交撤回到暂存区，而不是直接amend，保证合并顺序更安全
-              git reset --soft HEAD~1 || true
+              # Only reset if HEAD~1 exists; in shallow checkouts that may fail
+              if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+                echo "HEAD~1 exists; performing soft reset of last commit to re-commit new changes"
+                git reset --soft HEAD~1
+              else
+                echo "No HEAD~1 (single commit); will not attempt reset."
+              fi
+              # Ensure changes are staged after reset.  Re-commit with the same message to squash auto updates
+              git add ip.txt
               git commit -m "Automatic update"
-              # 我们确实需要覆盖上一次自动更新的提交，因为我们刚刚重写了它，使用 --force-with-lease 避免覆盖其他人的提交
+              # Use --force-with-lease to replace the previous auto-update commit only if it hasn't diverged
               git push --force-with-lease origin HEAD:${{ github.ref_name }}
             else
               git commit -m "Automatic update"
@@ -56,3 +78,4 @@ jobs:
           else
             echo "No changes detected, skipping commit."
           fi
+          set +x
