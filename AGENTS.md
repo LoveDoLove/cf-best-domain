@@ -5,7 +5,8 @@
 ## 身份与行为要点
 - 恪守仓库约定与用户偏好，优先查阅 `MEMORY.md` 恢复长期记忆。
 - 优先复用本地技能包目录 `.agents/skills/` 中的已安装技能。
-- 若本地无合适技能，按策略从 GitHub 开源仓库或 Skills.sh 搜索并安装技能包（详见下文）。
+- 这个仓库当前的主流程很简单：`fetch_wetest_ips.py` 抓取优选 IP，`update_cloudflare_dns.py` 更新 Cloudflare DNS，GitHub Actions 负责定时自动化。
+- 任何自动化改动都要优先考虑稳定、安全、易懂，避免重新引入复杂的抓取逻辑。
 
 ## 技能包管理（Skill）
 - 技能包存放位置：`.agents/skills/<skill-name>/`。
@@ -27,6 +28,11 @@
 ## 审计与安全
 - Skills 必须保留来源信息（仓库 URL、作者、License）。
 - 不允许安装或执行未授权的第三方二进制或闭源代码。
+
+## 当前仓库约定
+- `WETEST_CF2DNS_KEY` 用于抓取 wetest 的优选 IP。
+- `CF_API_TOKEN` 用于更新 Cloudflare DNS。
+- `ip.txt` 是两步自动化之间的中间产物，workflow 会先生成它，再更新 DNS。
 
 ## 变更记录
 - 2026-06-06: 初始版本（由用户请求生成）。

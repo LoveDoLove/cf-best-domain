@@ -1,6 +1,7 @@
 import os
 import requests
 
+
 def get_ip_list(source):
     """
     Get IP list from a URL or a local file.
@@ -14,6 +15,7 @@ def get_ip_list(source):
         with open(source, 'r', encoding='utf-8') as f:
             return [line.strip() for line in f if line.strip()]
 
+
 def get_cloudflare_zone(api_token):
     headers = {
         'Authorization': f'Bearer {api_token}',
@@ -25,6 +27,7 @@ def get_cloudflare_zone(api_token):
     if not zones:
         raise Exception("No zones found")
     return zones[0]['id'], zones[0]['name']
+
 
 def delete_existing_dns_records(api_token, zone_id, subdomain, domain):
     headers = {
@@ -42,6 +45,7 @@ def delete_existing_dns_records(api_token, zone_id, subdomain, domain):
             delete_response = requests.delete(f'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record["id"]}', headers=headers)
             delete_response.raise_for_status()
             print(f"Del {subdomain}:{record['id']}")
+
 
 def update_cloudflare_dns(ip_list, api_token, zone_id, subdomain, domain):
     headers = {
@@ -63,20 +67,21 @@ def update_cloudflare_dns(ip_list, api_token, zone_id, subdomain, domain):
         else:
             print(f"Failed to add A record for IP {ip} to subdomain {subdomain}: {response.status_code} {response.text}")
 
+
 if __name__ == "__main__":
     api_token = os.getenv('CF_API_TOKEN')
-    
+
     # 示例URL和子域名对应的IP列表
     subdomain_ip_mapping = {
         # 'bestcf': 'https://ipdb.030101.xyz/api/bestcf.txt',  # #域名一，bestcf.域名.com
         'api': 'ip.txt',  # Use local ip.txt for api.域名.com
         # Add more subdomains and their IP list sources as needed
     }
-    
+
     try:
         # 获取Cloudflare域区ID和域名
         zone_id, domain = get_cloudflare_zone(api_token)
-        
+
         for subdomain, url in subdomain_ip_mapping.items():
             # 获取IP列表
             ip_list = get_ip_list(url)
@@ -84,6 +89,6 @@ if __name__ == "__main__":
             delete_existing_dns_records(api_token, zone_id, subdomain, domain)
             # 更新Cloudflare DNS记录
             update_cloudflare_dns(ip_list, api_token, zone_id, subdomain, domain)
-            
+
     except Exception as e:
         print(f"Error: {e}")

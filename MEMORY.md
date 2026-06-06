@@ -29,6 +29,12 @@
 2. 当 Agent 执行会改变长期约定的操作（例如：变更编码约定或 CI 流程），必须在 `MEMORY.md` 中记录变更并写入变更记录与时间戳。
 3. `memory/tasks.md` 用于记录跨会话待办，Agent 在每次任务状态更新时应写入该文件以保持同步。
 
+当前项目状态：
+- 抓取优选 IP 的脚本已收敛为 `fetch_wetest_ips.py`，只使用 wetest 的两个 API 来源。
+- Cloudflare DNS 更新脚本为 `update_cloudflare_dns.py`，读取 `ip.txt` 并更新 A 记录。
+- 对应的 GitHub Actions workflow 已改名为 `collect_ip_list.yml` 与 `update_cloudflare_dns.yml`，分别负责抓取与更新。
+- `WETEST_CF2DNS_KEY` 与 `CF_API_TOKEN` 是当前自动化必需的两个 secret。
+
 隐私与审计：
 - 禁止将任何敏感信息（API key、密码、个人身份信息）写入 `MEMORY.md` 或 `memory/` 目录下的任何文件。
 - 所有更改应保留作者/Agent 标识与时间戳，以便审计。

@@ -41,7 +41,7 @@ jobs:
       - name: Run script
         env:
           WETEST_CF2DNS_KEY: ${{ secrets.WETEST_CF2DNS_KEY }}
-        run: python ${{ github.workspace }}/collect_ips.py
+        run: python ${{ github.workspace }}/fetch_wetest_ips.py
 
       - name: Commit and push changes (safe update)
         run: |

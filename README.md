@@ -59,19 +59,21 @@
 
 ## About The Project
 
-**cf-best-domain** is a small, focused Python automation toolkit that helps you collect Cloudflare IP addresses from multiple sources and use them to automatically manage A records in a Cloudflare zone.
+**cf-best-domain** is a small, focused Python automation toolkit for fetching pre-selected Cloudflare / CloudFront IPs from wetest and using them to update Cloudflare DNS A records.
 
 This repository contains two primary scripts:
 
-- `collect_ips.py`: Scrapes several public sources and stores unique IPv4 addresses to `ip.txt`.
-- `bestdomain.py`: Reads IP addresses (local file or remote source) and updates a Cloudflare zone by removing existing A records for a subdomain and creating new A records from the IP list.
+- `fetch_wetest_ips.py`: Fetches pre-selected Cloudflare / CloudFront IP lists from wetest and stores unique IPv4 addresses to `ip.txt`.
+- `update_cloudflare_dns.py`: Reads IP addresses from `ip.txt` and updates a Cloudflare zone by removing existing A records for a subdomain and creating new A records from the IP list.
+- GitHub Actions workflows:
+  - `collect_ip_list.yml`: generates `ip.txt`
+  - `update_cloudflare_dns.yml`: refreshes `ip.txt` and updates Cloudflare DNS
 
 Key features:
 
-- Collect Cloudflare IPs from multiple curated sources with HTML parsing and regex validation.
-- Keep a canonical `ip.txt` with best candidate IPv4 addresses.
+- Keep a canonical `ip.txt` with pre-selected IPv4 addresses from wetest.
 - Automate Cloudflare DNS A record creation and deletion using the Cloudflare API (token-based).
-- Simple mapping for multiple subdomains -> IP list sources for flexible automation.
+- Simple and stable two-step automation: fetch IPs first, then update DNS.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -79,7 +81,6 @@ Key features:
 
 - Python 3.7+
 - requests (HTTP client) — https://pypi.org/project/requests/
-- beautifulsoup4 (HTML parsing) — https://pypi.org/project/beautifulsoup4/
 
 Optional but useful for dev:
 
@@ -99,14 +100,13 @@ To get a local copy up and running, follow these steps.
 Install required packages:
 
 ```sh
-pip install requests beautifulsoup4
+pip install requests
 ```
 
-Tip: You can create a simple `requirements.txt` with these lines if you prefer:
+Tip: You can create a simple `requirements.txt` with this line if you prefer:
 
 ```
 requests
-beautifulsoup4
 ```
 
 ### Installation
@@ -118,16 +118,24 @@ beautifulsoup4
    ```
 2. Set up your Cloudflare API token for the script to authenticate:
 
+Set the wetest key as well:
+
+```sh
+export WETEST_CF2DNS_KEY="<YOUR_WETEST_KEY>"
+```
+
 Windows (cmd.exe):
 
 ```cmd
 setx CF_API_TOKEN "<YOUR_CLOUDFLARE_API_TOKEN>"
+setx WETEST_CF2DNS_KEY "<YOUR_WETEST_KEY>"
 ```
 
 Linux / macOS (bash):
 
 ```sh
 export CF_API_TOKEN="<YOUR_CLOUDFLARE_API_TOKEN>"
+export WETEST_CF2DNS_KEY="<YOUR_WETEST_KEY>"
 ```
 
 You can also pass a token into the script by editing the code, but environment variables are recommended.
@@ -141,21 +149,23 @@ You can also pass a token into the script by editing the code, but environment v
 Run the following command to fetch and store candidate Cloudflare IP addresses from the configured sources:
 
 ```sh
-python collect_ips.py
+python fetch_wetest_ips.py
 ```
 
 This script will create/overwrite `ip.txt` (one IPv4 per line) in the repository root.
 
-By default `collect_ips.py` targets several community-maintained sources; you can add/remove sources in the `urls` list at the top of the file.
+The script only uses the two wetest APIs and the `WETEST_CF2DNS_KEY` environment variable.
 
 ### Manage Cloudflare DNS Records
 
-`bestdomain.py` automates deletion of existing A records for a subdomain and creation of new A records for each IP in an IP list.
+`update_cloudflare_dns.py` automates deletion of existing A records for a subdomain and creation of new A records for each IP in an IP list.
 
 Example (from the command line if you import functions or run the script directly):
 
 ```python
-from bestdomain import get_ip_list, get_cloudflare_zone, delete_existing_dns_records, update_cloudflare_dns
+import os
+
+from update_cloudflare_dns import get_ip_list, get_cloudflare_zone, delete_existing_dns_records, update_cloudflare_dns
 
 # ip_list can be a local file like 'ip.txt' or a remote URL that returns one IP per line
 ip_list = get_ip_list('ip.txt')
@@ -168,7 +178,7 @@ update_cloudflare_dns(ip_list, api_token, zone_id, subdomain, domain)
 
 Note: The script uses Cloudflare token-based authentication. The environment variable `CF_API_TOKEN` should be set with a token that has permission to list and modify DNS records for the zone(s) used.
 
-Add other subdomains to the `subdomain_ip_mapping` dictionary inside `bestdomain.py` to automate multiple names.
+The repository currently ships with a single `api` mapping in `update_cloudflare_dns.py`; add more subdomains there if needed.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
