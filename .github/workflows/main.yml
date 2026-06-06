@@ -27,6 +27,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
+      - name: Validate secrets
+        env:
+          WETEST_CF2DNS_KEY: ${{ secrets.WETEST_CF2DNS_KEY }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          if [ -z "$WETEST_CF2DNS_KEY" ]; then
+            echo "Missing secret: WETEST_CF2DNS_KEY"
+            exit 1
+          fi
+          if [ -z "$CF_API_TOKEN" ]; then
+            echo "Missing secret: CF_API_TOKEN"
+            exit 1
+          fi
+
+      - name: Collect IP list
+        env:
+          WETEST_CF2DNS_KEY: ${{ secrets.WETEST_CF2DNS_KEY }}
+        run: |
+          python collect_ips.py
+
+      - name: Verify IP list
+        run: |
+          if [ ! -s ip.txt ]; then
+            echo "ip.txt is empty; aborting Cloudflare DNS update"
+            exit 1
+          fi
+
       - name: Run update script
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
