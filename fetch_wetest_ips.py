@@ -12,11 +12,11 @@ SOURCES = [
         "https://www.wetest.vip/api/cf2dns/get_cloudflare_ip",
         WETEST_CF2DNS_KEY,
     ),
-    (
-        "cloudfront",
-        "https://www.wetest.vip/api/cf2dns/get_cloudfront_ip",
-        WETEST_CF2DNS_KEY,
-    ),
+    # (
+    #     "cloudfront",
+    #     "https://www.wetest.vip/api/cf2dns/get_cloudfront_ip",
+    #     WETEST_CF2DNS_KEY,
+    # ),
 ]
 
 
