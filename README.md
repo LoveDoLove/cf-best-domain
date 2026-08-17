@@ -59,7 +59,7 @@
 
 ## About The Project
 
-**cf-best-domain** is a small, focused Python automation toolkit for fetching pre-selected Cloudflare / CloudFront IPs from wetest and using them to update Cloudflare DNS A records.
+**cf-best-domain** is a small, focused Python automation toolkit for fetching pre-selected Cloudflare IPs from wetest and using them to update Cloudflare DNS A records.
 
 This repository contains two primary scripts:
 
@@ -154,7 +154,7 @@ python fetch_wetest_ips.py
 
 This script will create/overwrite `ip.txt` (one IPv4 per line) in the repository root.
 
-The script only uses the two wetest APIs and the `WETEST_CF2DNS_KEY` environment variable.
+The script uses the wetest API (Cloudflare source) and the `WETEST_CF2DNS_KEY` environment variable. The CloudFront source is commented out in `SOURCES`.
 
 ### Manage Cloudflare DNS Records
 

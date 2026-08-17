@@ -1,38 +1,52 @@
 # AGENTS.md
 
-本文件定义 AI Agent（助手）的身份、行为规范与对话启动流程，供每次 Copilot/Assistant 会话开始时读取并恢复状态。
+本文件是 AI Agent 的快速入口。详细知识按需 follow 下方链接，不要全量读取。
 
-## 身份与行为要点
-- 恪守仓库约定与用户偏好，优先查阅 `MEMORY.md` 恢复长期记忆。
-- 优先复用本地技能包目录 `.agents/skills/` 中的已安装技能。
-- 这个仓库当前的主流程很简单：`fetch_wetest_ips.py` 抓取优选 IP，`update_cloudflare_dns.py` 更新 Cloudflare DNS，GitHub Actions 负责定时自动化。
-- 任何自动化改动都要优先考虑稳定、安全、易懂，避免重新引入复杂的抓取逻辑。
+## 项目身份
 
-## 技能包管理（Skill）
-- 技能包存放位置：`.agents/skills/<skill-name>/`。
-- 每个技能包须包含主入口 `SKILL.md`，描述能力、用法与来源。
-- 强制要求：所有技能包必须是 clone/下载自 GitHub 或其他公开开源仓库，不得仅由本仓库人工编写后声称为“开源技能”。
+`cf-best-domain`：自动抓取 Cloudflare 优选 IP 并同步到 Cloudflare DNS A 记录的小型 Python 工具。两个脚本 + GitHub Actions 定时任务，无框架、无测试、无 requirements.txt（唯一依赖 `requests`，CI 内直接 `pip install requests`）。
 
-技能安装建议流程：
-1. 在本地目录 `.agents/skills/` 搜索是否已有匹配技能。
-2. 若没有，优先在 GitHub 上检索关键词（例如："copilot skill", "agent skill", "AI skill"），选择有明确 LICENSE 的开源仓库。
-3. 将该仓库或其子目录 clone 到 `.agents/skills/<skill-name>/`，并保留原始仓库链接与 commit 信息写入 `SKILL.md` 或 `METADATA` 文件中以便审计。
+## 关键规则
 
-## 会话启动模板
-在新开的对话或会话恢复时，请对 Assistant 发送：
+- **以代码为准**：文档与实现冲突时，以当前 source code / workflow 为准，并修正文档。
+- **保持简单**：任何自动化改动优先考虑稳定、安全、易懂；禁止重新引入复杂抓取逻辑（多来源、爬虫、代理、反爬）。
+- **安全**：密钥只经环境变量 / GitHub Secrets（`WETEST_CF2DNS_KEY`、`CF_API_TOKEN`），绝不写入仓库；`ip.txt` 为空时禁止执行 DNS 更新（防误删记录）。
+
+## 当前架构（极简摘要）
 
 ```
-请读取 AGENTS.md 和 MEMORY.md，恢复你的身份和工作状态，然后继续我们的工作。
+wetest.vip API ──fetch_wetest_ips.py──> ip.txt ──update_cloudflare_dns.py──> Cloudflare DNS A 记录
 ```
 
-## 审计与安全
-- Skills 必须保留来源信息（仓库 URL、作者、License）。
-- 不允许安装或执行未授权的第三方二进制或闭源代码。
+- `fetch_wetest_ips.py`：从 wetest.vip API 抓优选 IPv4 → 去重 → 写 `ip.txt`。来源在 `SOURCES`（当前仅 cloudflare，cloudfront 已注释），key 用 `WETEST_CF2DNS_KEY`。带 3 次重试（5s 间隔）。
+- `update_cloudflare_dns.py`：读 `ip.txt` → 取 token 第一个 zone → 删除并重建 `subdomain_ip_mapping` 中各子域的 A 记录（当前仅 `api`）。key 用 `CF_API_TOKEN`。
+- `ip.txt`：中间产物，提交在仓库根目录。
+- Workflows（全部 `*/30` cron）：
+  - `collect_ip_list.yml`：抓取 + 提交（squash 自动更新提交）
+  - `update_cloudflare_dns.yml`：抓取 + 校验 `ip.txt` 非空 + 更新 DNS
+  - `cleanup-failed-runs.yml` / `cleanup-all-runs.yml`：手动触发，清理 Actions 运行记录（下载外部脚本执行）
 
-## 当前仓库约定
-- `WETEST_CF2DNS_KEY` 用于抓取 wetest 的优选 IP。
-- `CF_API_TOKEN` 用于更新 Cloudflare DNS。
-- `ip.txt` 是两步自动化之间的中间产物，workflow 会先生成它，再更新 DNS。
+## 约束
+
+- Python 3.7+（workflow 用 3.9 / 3.x）；仅依赖 `requests` + stdlib。
+- 无本地测试；CI 即验证。改动脚本后至少 `python -m py_compile` 或本地跑一次。
+- wetest API 从 GitHub Actions runner 偶发连接超时（已加重试吸收；若持续失败，可能是 wetest 封数据中心 IP）。
+
+## 验证要求
+
+1. 改动脚本 → 语法/运行验证（本地或 CI）。
+2. 改动 workflow → 核对 secret 校验、`ip.txt` 非空 guard、提交策略不被破坏。
+3. 改动文档 → 与实现交叉核对，避免漂移。
+
+## 详细知识
+
+| 主题 | 位置 |
+| --- | --- |
+| 架构 / 数据流 / 扩展点 | `docs/architecture.md` |
+| 工程决策与 rationale | `docs/decisions.md` |
+| Lessons learned | `docs/lessons.md` |
+| 历史 / 已废弃信息 | `docs/history.md` |
 
 ## 变更记录
-- 2026-06-06: 初始版本（由用户请求生成）。
+
+- 2026-08-17：重建为入口文档；详细内容移入 `docs/`；移除已删除的 `MEMORY.md` 引用。
