@@ -1,5 +1,6 @@
 import ipaddress
 import os
+import time
 from typing import Any, Iterable
 
 import requests
@@ -56,13 +57,21 @@ def fetch_source(name: str, url: str, key: str) -> list[str]:
         return []
 
     print(f"[get] {name}: {url}")
-    response = requests.get(
-        url,
-        params={"key": key, "type": "v4"},
-        headers={"User-Agent": "cf-best-domain/1.0"},
-        timeout=20,
-    )
-    response.raise_for_status()
+    for attempt in range(3):
+        try:
+            response = requests.get(
+                url,
+                params={"key": key, "type": "v4"},
+                headers={"User-Agent": "cf-best-domain/1.0"},
+                timeout=20,
+            )
+            response.raise_for_status()
+            break
+        except requests.RequestException:
+            if attempt == 2:
+                raise
+            print(f"[retry] {name}: attempt {attempt + 1} failed, retrying")
+            time.sleep(5)
 
     data = response.json()
     ips = extract_ips(data)
