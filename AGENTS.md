@@ -1,52 +1,47 @@
 # AGENTS.md
 
-本文件是 AI Agent 的快速入口。详细知识按需 follow 下方链接，不要全量读取。
+本文件是面向 AI Coding Agent 的第一入口与工程操作指引。保持高信息密度，不要把详细文档直接内嵌于此；详细知识按需查阅 `docs/` 目录下的独立文件。
 
-## 项目身份
+## 1. 项目定位与核心原则
 
-`cf-best-domain`：自动抓取 Cloudflare 优选 IP 并同步到 Cloudflare DNS A 记录的小型 Python 工具。两个脚本 + GitHub Actions 定时任务，无框架、无测试、无 requirements.txt（唯一依赖 `requests`，CI 内直接 `pip install requests`）。
+- **项目身份**：`cf-best-domain` — 自动化抓取 Cloudflare 优选 IP 并同步至 Cloudflare DNS A 记录的极简 Python 自动化工具。
+- **以代码为准**：文档与源码出现分歧时，**以当前源码（`*.py`）与工作流（`*.yml`）的实现为绝对事实源**，并同步纠正文档。
+- **极简主义约束**：保持简单与稳定。**严禁重新引入复杂的多源网页爬虫、代理池、第三方重型数据库或依赖框架**。
+- **安全红线**：密钥（`CF_API_TOKEN`、`WETEST_CF2DNS_KEY`）仅通过环境变量与 GitHub Secrets 传递，**绝不硬编码入代码、日志或提交中**。
+- **熔断完整性**：`update_cloudflare_dns.yml` 中的 `[ -s ip.txt ]` 非空门禁是防止线上 DNS 记录被意外清空的核心防线，**严禁弱化或移除**。
 
-## 关键规则
-
-- **以代码为准**：文档与实现冲突时，以当前 source code / workflow 为准，并修正文档。
-- **保持简单**：任何自动化改动优先考虑稳定、安全、易懂；禁止重新引入复杂抓取逻辑（多来源、爬虫、代理、反爬）。
-- **安全**：密钥只经环境变量 / GitHub Secrets（`WETEST_CF2DNS_KEY`、`CF_API_TOKEN`），绝不写入仓库；`ip.txt` 为空时禁止执行 DNS 更新（防误删记录）。
-
-## 当前架构（极简摘要）
+## 2. 架构拓扑速查
 
 ```
 wetest.vip API ──fetch_wetest_ips.py──> ip.txt ──update_cloudflare_dns.py──> Cloudflare DNS A 记录
 ```
 
-- `fetch_wetest_ips.py`：从 wetest.vip API 抓优选 IPv4 → 去重 → 写 `ip.txt`。来源在 `SOURCES`（当前仅 cloudflare，cloudfront 已注释），key 用 `WETEST_CF2DNS_KEY`。带 3 次重试（5s 间隔）。
-- `update_cloudflare_dns.py`：读 `ip.txt` → 取 token 第一个 zone → 删除并重建 `subdomain_ip_mapping` 中各子域的 A 记录（当前仅 `api`）。key 用 `CF_API_TOKEN`。
-- `ip.txt`：中间产物，提交在仓库根目录。
-- Workflows（全部 `*/30` cron）：
-  - `collect_ip_list.yml`：抓取 + 提交（squash 自动更新提交）
-  - `update_cloudflare_dns.yml`：抓取 + 校验 `ip.txt` 非空 + 更新 DNS
-  - `cleanup-failed-runs.yml` / `cleanup-all-runs.yml`：手动触发，清理 Actions 运行记录（下载外部脚本执行）
+- `fetch_wetest_ips.py`：从 wetest.vip 获取 Cloudflare 优选 IPv4 → 递归提取与校验 → 排重 → 写入 `ip.txt`。
+- `update_cloudflare_dns.py`：从 `ip.txt` 读取 IP → 基于 Token 发现 Zone → 循环清理旧 A 记录 → 批量写入新 A 记录（`TTL=1`，`proxied=False`）。
+- `ip.txt`：中间状态解耦载体，由 Git 跟踪版本。
 
-## 约束
+## 3. Runtime 规范与运行约束
 
-- Python 3.7+（workflow 用 3.9 / 3.x）；仅依赖 `requests` + stdlib。
-- 无本地测试；CI 即验证。改动脚本后至少 `python -m py_compile` 或本地跑一次。
-- wetest API 从 GitHub Actions runner 偶发连接超时（已加重试吸收；若持续失败，可能是 wetest 封数据中心 IP）。
+- **Python 运行时**：Python 3.7+（GitHub Actions 统一配置 `python-version: "3.x"`）。
+- **依赖管理**：仅依赖 Python 标准库及 `requests`，无 `requirements.txt`（CI 中执行 `pip install requests`）。
+- **测试与验证**：无本地单元测试框架。改动脚本后执行 `python -m py_compile <file.py>` 验证语法，业务行为以 GitHub Actions CI 真实运行结果为准。
 
-## 验证要求
+## 4. 详细知识索引地图
 
-1. 改动脚本 → 语法/运行验证（本地或 CI）。
-2. 改动 workflow → 核对 secret 校验、`ip.txt` 非空 guard、提交策略不被破坏。
-3. 改动文档 → 与实现交叉核对，避免漂移。
+在执行深度任务时，请根据以下主题索引精准查阅 `docs/` 目录下的专门文档：
 
-## 详细知识
+| 关注主题 | 文档路径 | 核心内容 |
+| --- | --- | --- |
+| **技术白皮书 (EN)** | [`docs/whitepaper.md`](docs/whitepaper.md) | 英文架构白皮书、Anycast 路由优化理论、系统拓扑、安全模型与演进规划 |
+| **技术白皮书 (中文)** | [`docs/whitepaper_zh.md`](docs/whitepaper_zh.md) | 完整双语技术白皮书：路由机理、系统拓扑、安全模型与演进规划 |
+| **系统架构与数据流** | [`docs/architecture.md`](docs/architecture.md) | 模块切分、详细请求参数、异常重试逻辑、工作流触发机制 |
+| **工程决策记录 (ADR)** | [`docs/decisions.md`](docs/decisions.md) | 架构演进决策（单一数据源、Squash 提交、Runner 兼容策略等） |
+| **经验教训与避坑** | [`docs/lessons.md`](docs/lessons.md) | 跨国网络超时、Runner 镜像升级与 EOL Python、文档漂移防范 |
+| **配置与部署指南** | [`docs/configuration.md`](docs/configuration.md) | Cloudflare Token 权限配置、wetest 密钥获取、子域名映射扩展配置 |
+| **历史与已废弃信息** | [`docs/history.md`](docs/history.md) | 旧文件名映射表、已淘汰方案列表（避免重复走弯路） |
 
-| 主题 | 位置 |
-| --- | --- |
-| 架构 / 数据流 / 扩展点 | `docs/architecture.md` |
-| 工程决策与 rationale | `docs/decisions.md` |
-| Lessons learned | `docs/lessons.md` |
-| 历史 / 已废弃信息 | `docs/history.md` |
+## 5. 变更与提交规范
 
-## 变更记录
-
-- 2026-08-17：重建为入口文档；详细内容移入 `docs/`；移除已删除的 `MEMORY.md` 引用。
+1. **改动脚本**：必须通过 `python -m py_compile` 验证语法，严禁引入未经批准的第三方重型依赖。
+2. **改动工作流**：核对密钥名称、非空熔断守卫、提交 squash 逻辑是否完整。
+3. **改动文档**：必须中英文（`README.md` & `README_zh.md`、`whitepaper.md` & `whitepaper_zh.md`）对照检查，防止信息不对称。
