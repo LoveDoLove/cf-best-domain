@@ -28,7 +28,7 @@ wetest.vip API ──fetch_wetest_ips.py──> ip.txt ──update_cloudflare_d
 
 ## 约束
 
-- Python 3.7+（workflow 用 3.9 / 3.x）；仅依赖 `requests` + stdlib。
+- Python 3.7+（workflow 用 3.x）；仅依赖 `requests` + stdlib。
 - 无本地测试；CI 即验证。改动脚本后至少 `python -m py_compile` 或本地跑一次。
 - wetest API 从 GitHub Actions runner 偶发连接超时（已加重试吸收；若持续失败，可能是 wetest 封数据中心 IP）。
 
